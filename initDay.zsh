@@ -31,7 +31,10 @@ go mod init "github.com/4d46/AdventOfCode2023/$DIRECTORY"
 # Create a default Go template
 echo "package main
 
-import \"fmt\"
+import (
+	\"fmt\"
+	\"os\"
+)
 
 func main() {
     fmt.Printf(\"Advent of Code 2023 - Day %2d\\\n\", ${1})
