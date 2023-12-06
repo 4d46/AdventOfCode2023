@@ -31,10 +31,24 @@ go mod init "github.com/4d46/AdventOfCode2023/$DIRECTORY"
 # Create a default Go template
 echo "package main
 
-import \"fmt\"
+import (
+	\"fmt\"
+	\"os\"
+)
 
 func main() {
     fmt.Printf(\"Advent of Code 2023 - Day %2d\\\n\", ${1})
+}
+
+// Load file contents into a string and return it
+func loadFileContents(filename string) string {
+        // Read contents of file into a string
+        fileBytes, err := os.ReadFile(filename) // just pass the file name
+        if err != nil {
+                panic(err)
+        }
+
+        return string(fileBytes) // convert content to a 'string'
 }" > main.go
 
 go build
