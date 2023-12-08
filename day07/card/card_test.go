@@ -148,13 +148,47 @@ func TestCalculateScoreKingPairCard(t *testing.T) {
 
 	// Calculate score
 	score := CalculateScore(cards)
+	handType := ClassifyHandType(cards)
 
 	// Define expected score
-	expectedScore := 1*math.Pow(13, 4) + 6*math.Pow(13, 3) + 11*math.Pow(13, 2) + 3*math.Pow(13, 1) + 11*math.Pow(13, 0) + 1*math.Pow(13, 5)
+	expectedScore := 1*math.Pow(13, 4) + 6*math.Pow(13, 3) + 11*math.Pow(13, 2) + 3*math.Pow(13, 1) + 11*math.Pow(13, 0)
+	expectedHandType := OnePair
 
 	// Check if the calculated score matches the expected score
 	if score != expectedScore {
 		t.Errorf("Expected score: %f, but got: %f", expectedScore, score)
+	}
+	if handType != expectedHandType {
+		t.Errorf("Expected hand type: %d, but got: %d", expectedHandType, handType)
+	}
+}
+
+func TestCalculateScoreJack3OfAKindCard(t *testing.T) {
+	// Create test cards
+	cards := [5]*Card{
+		Parse('J'),
+		Parse('2'),
+		Parse('3'),
+		Parse('2'),
+		Parse('6'),
+	}
+
+	// spew.Dump(Parse('2'))
+
+	// Calculate score
+	score := CalculateScore(cards)
+	handType := ClassifyHandType(cards)
+
+	// Define expected score
+	expectedScore := 0*math.Pow(13, 4) + 1*math.Pow(13, 3) + 2*math.Pow(13, 2) + 1*math.Pow(13, 1) + 5*math.Pow(13, 0)
+	expectedHandType := ThreeOfAKind
+
+	// Check if the calculated score matches the expected score
+	if score != expectedScore {
+		t.Errorf("Expected score: %f, but got: %f", expectedScore, score)
+	}
+	if handType != expectedHandType {
+		t.Errorf("Expected hand type: %d, but got: %d", expectedHandType, handType)
 	}
 }
 
@@ -182,133 +216,133 @@ func TestCalculateScoreKingTenJackCard(t *testing.T) {
 	}
 }
 
-func TestCalculateBestHandOnlyJackWildcard(t *testing.T) {
-	// Create test cards
-	cards := [5]*Card{
-		Parse('J'),
-		Parse('J'),
-		Parse('J'),
-		Parse('J'),
-		Parse('J'),
-	}
+// func TestCalculateBestHandOnlyJackWildcard(t *testing.T) {
+// 	// Create test cards
+// 	cards := [5]*Card{
+// 		Parse('J'),
+// 		Parse('J'),
+// 		Parse('J'),
+// 		Parse('J'),
+// 		Parse('J'),
+// 	}
 
-	cardsExpected := [5]*Card{
-		Parse('A'),
-		Parse('A'),
-		Parse('A'),
-		Parse('A'),
-		Parse('A'),
-	}
+// 	cardsExpected := [5]*Card{
+// 		Parse('A'),
+// 		Parse('A'),
+// 		Parse('A'),
+// 		Parse('A'),
+// 		Parse('A'),
+// 	}
 
-	bestHand := CalculateBestHand(cards)
+// 	bestHand := CalculateBestHand(cards)
 
-	matching := true
-	for pos, _ := range bestHand {
-		if bestHand[pos].value != cardsExpected[pos].value {
-			matching = false
-		}
-	}
-	// Check if the calculated score matches the expected score
-	if !matching {
-		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
-	}
-}
+// 	matching := true
+// 	for pos, _ := range bestHand {
+// 		if bestHand[pos].value != cardsExpected[pos].value {
+// 			matching = false
+// 		}
+// 	}
+// 	// Check if the calculated score matches the expected score
+// 	if !matching {
+// 		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
+// 	}
+// }
 
-func TestCalculateBestHandAceJackWildcard(t *testing.T) {
-	// Create test cards
-	cards := [5]*Card{
-		Parse('A'),
-		Parse('A'),
-		Parse('J'),
-		Parse('2'),
-		Parse('3'),
-	}
+// func TestCalculateBestHandAceJackWildcard(t *testing.T) {
+// 	// Create test cards
+// 	cards := [5]*Card{
+// 		Parse('A'),
+// 		Parse('A'),
+// 		Parse('J'),
+// 		Parse('2'),
+// 		Parse('3'),
+// 	}
 
-	cardsExpected := [5]*Card{
-		Parse('A'),
-		Parse('A'),
-		Parse('A'),
-		Parse('2'),
-		Parse('3'),
-	}
+// 	cardsExpected := [5]*Card{
+// 		Parse('A'),
+// 		Parse('A'),
+// 		Parse('A'),
+// 		Parse('2'),
+// 		Parse('3'),
+// 	}
 
-	bestHand := CalculateBestHand(cards)
+// 	bestHand := CalculateBestHand(cards)
 
-	matching := true
-	for pos, _ := range bestHand {
-		if bestHand[pos].value != cardsExpected[pos].value {
-			matching = false
-		}
-	}
-	// Check if the calculated score matches the expected score
-	if !matching {
-		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
-	}
-}
+// 	matching := true
+// 	for pos, _ := range bestHand {
+// 		if bestHand[pos].value != cardsExpected[pos].value {
+// 			matching = false
+// 		}
+// 	}
+// 	// Check if the calculated score matches the expected score
+// 	if !matching {
+// 		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
+// 	}
+// }
 
-func TestCalculateBestHandFourJackWildcard(t *testing.T) {
-	// Create test cards
-	cards := [5]*Card{
-		Parse('4'),
-		Parse('4'),
-		Parse('J'),
-		Parse('2'),
-		Parse('J'),
-	}
+// func TestCalculateBestHandFourJackWildcard(t *testing.T) {
+// 	// Create test cards
+// 	cards := [5]*Card{
+// 		Parse('4'),
+// 		Parse('4'),
+// 		Parse('J'),
+// 		Parse('2'),
+// 		Parse('J'),
+// 	}
 
-	cardsExpected := [5]*Card{
-		Parse('4'),
-		Parse('4'),
-		Parse('4'),
-		Parse('2'),
-		Parse('4'),
-	}
+// 	cardsExpected := [5]*Card{
+// 		Parse('4'),
+// 		Parse('4'),
+// 		Parse('4'),
+// 		Parse('2'),
+// 		Parse('4'),
+// 	}
 
-	bestHand := CalculateBestHand(cards)
+// 	bestHand := CalculateBestHand(cards)
 
-	matching := true
-	for pos, _ := range bestHand {
-		if bestHand[pos].value != cardsExpected[pos].value {
-			matching = false
-		}
-	}
-	// Check if the calculated score matches the expected score
-	if !matching {
-		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
-	}
-}
+// 	matching := true
+// 	for pos, _ := range bestHand {
+// 		if bestHand[pos].value != cardsExpected[pos].value {
+// 			matching = false
+// 		}
+// 	}
+// 	// Check if the calculated score matches the expected score
+// 	if !matching {
+// 		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
+// 	}
+// }
 
-func TestCalculateBestHandKingJackWildcard(t *testing.T) {
-	// Create test cards
-	cards := [5]*Card{
-		Parse('2'),
-		Parse('7'),
-		Parse('J'),
-		Parse('4'),
-		Parse('K'),
-	}
+// func TestCalculateBestHandKingJackWildcard(t *testing.T) {
+// 	// Create test cards
+// 	cards := [5]*Card{
+// 		Parse('2'),
+// 		Parse('7'),
+// 		Parse('J'),
+// 		Parse('4'),
+// 		Parse('K'),
+// 	}
 
-	cardsExpected := [5]*Card{
-		Parse('2'),
-		Parse('7'),
-		Parse('K'),
-		Parse('4'),
-		Parse('K'),
-	}
+// 	cardsExpected := [5]*Card{
+// 		Parse('2'),
+// 		Parse('7'),
+// 		Parse('K'),
+// 		Parse('4'),
+// 		Parse('K'),
+// 	}
 
-	bestHand := CalculateBestHand(cards)
+// 	bestHand := CalculateBestHand(cards)
 
-	matching := true
-	for pos, _ := range bestHand {
-		if bestHand[pos].value != cardsExpected[pos].value {
-			matching = false
-		}
-	}
-	// Check if the calculated score matches the expected score
-	if !matching {
-		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
-	}
-}
+// 	matching := true
+// 	for pos, _ := range bestHand {
+// 		if bestHand[pos].value != cardsExpected[pos].value {
+// 			matching = false
+// 		}
+// 	}
+// 	// Check if the calculated score matches the expected score
+// 	if !matching {
+// 		t.Errorf("Expected: %v, but got: %v", cardsExpected, cards)
+// 	}
+// }
 
 func TestClassifyHandTypeHighCard(t *testing.T) {
 	cards := [5]*Card{

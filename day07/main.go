@@ -12,12 +12,12 @@ import (
 
 // Hand definition
 type Hand struct {
-	cards        [5]*card.Card
-	bestHand     [5]*card.Card
+	cards [5]*card.Card
+	// bestHand     [5]*card.Card
 	bestHandType card.HandType
 	bid          int
 	score        float64
-	rawScore     float64
+	// rawScore     float64
 }
 
 // Example hand part 1
@@ -65,7 +65,7 @@ func SortHands(hands []Hand) {
 	// Sort hands by score
 	sort.Slice(hands, func(i, j int) bool {
 		if hands[i].bestHandType == hands[j].bestHandType {
-			return hands[i].rawScore < hands[j].rawScore
+			return hands[i].score < hands[j].score
 		}
 		return hands[i].bestHandType < hands[j].bestHandType
 		// if hands[i].score == hands[j].score {
@@ -104,17 +104,17 @@ func parseHands(input string) []Hand {
 			panic(err)
 		}
 		cards := parseCards(cardsStr)
-		bestHand := card.CalculateBestHand(cards)
-		fmt.Printf("%s Best Hand: %s\n", card.FormatHand(cards), card.FormatHand(bestHand))
+		// bestHand := card.CalculateBestHand(cards)
+		// fmt.Printf("%s Best Hand: %s\n", card.FormatHand(cards), card.FormatHand(bestHand))
 		// spew.Dump(bestHand)
 		// Create a hand
 		hands[i] = Hand{
-			cards:        cards,
-			bestHand:     bestHand,
+			cards: cards,
+			// bestHand:     bestHand,
 			bid:          bid,
-			bestHandType: card.ClassifyHandType(bestHand),
-			score:        card.CalculateScore(bestHand),
-			rawScore:     card.CalculateScore(cards),
+			bestHandType: card.ClassifyHandType(cards),
+			score:        card.CalculateScore(cards),
+			// rawScore:     card.CalculateScore(cards),
 		}
 	}
 
