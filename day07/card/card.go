@@ -134,26 +134,26 @@ func (c *Card) Value() int {
 }
 
 // Calculate the best hand from a set of cards
-func CalculateBestHand(cards [5]*Card) [5]*Card {
-	var bestHand [5]*Card
-	var bestScore float64
+// func CalculateBestHand(cards [5]*Card) [5]*Card {
+// 	var bestHand [5]*Card
+// 	var bestScore float64
 
-	// Loop through all possible hand variations
-	for _, hand := range allHandVariations(cards) {
-		// fmt.Printf("  %s All Hands: %s\n", FormatHand(cards), FormatHand(hand))
+// 	// Loop through all possible hand variations
+// 	for _, hand := range allHandVariations(cards) {
+// 		// fmt.Printf("  %s All Hands: %s\n", FormatHand(cards), FormatHand(hand))
 
-		// Calculate score for hand
-		score := CalculateScore(hand)
-		// Check if score is better than best hand
-		if score > bestScore {
-			// If so, set best hand to current hand
-			bestHand = hand
-			bestScore = score
-		}
-	}
+// 		// Calculate score for hand
+// 		score := CalculateScore(hand)
+// 		// Check if score is better than best hand
+// 		if score > bestScore {
+// 			// If so, set best hand to current hand
+// 			bestHand = hand
+// 			bestScore = score
+// 		}
+// 	}
 
-	return bestHand
-}
+// 	return bestHand
+// }
 
 func FormatHand(cards [5]*Card) string {
 	// Create a slice of cards
@@ -197,63 +197,80 @@ func CalculateScore(cards [5]*Card) float64 {
 }
 
 // Calculate all possible hand types if the Joker is wild
-func allHandVariations(cards [5]*Card) [][5]*Card {
-	var hands [][5]*Card
-	var nonJokerCards map[*Card]bool = make(map[*Card]bool)
-	var hasJoker bool
+// func allHandVariations(cards [5]*Card) [][5]*Card {
+// 	var hands [][5]*Card
+// 	var nonJokerCards map[*Card]bool = make(map[*Card]bool)
+// 	var hasJoker bool
 
-	// Add passed hand to hands
-	hands = append(hands, cards)
+// 	// Add passed hand to hands
+// 	hands = append(hands, cards)
 
-	// Loop through cards adding unique cards to map
-	for _, c := range cards {
-		if c.Value() != cJ {
-			nonJokerCards[c] = true
-		} else {
-			hasJoker = true
-		}
-	}
+// 	// Loop through cards adding unique cards to map
+// 	for _, c := range cards {
+// 		if c.Value() != cJ {
+// 			nonJokerCards[c] = true
+// 		} else {
+// 			hasJoker = true
+// 		}
+// 	}
 
-	// If there is no joker, return the original hand
-	if !hasJoker {
-		return hands
-	}
+// 	// If there is no joker, return the original hand
+// 	if !hasJoker {
+// 		return hands
+// 	}
 
-	if len(nonJokerCards) == 0 {
-		nonJokerCards[Parse('A')] = true
-	}
+// 	//
+// 	if len(nonJokerCards) == 0 {
+// 		nonJokerCards[Parse('A')] = true
+// 	}
 
-	// Loop over non-joker cards in map and create a new hand for each, replacing any jokers
-	for c := range nonJokerCards {
-		// Create a new hand
-		var newHand [5]*Card
-		// Loop through cards
-		for pos, c2 := range cards {
-			// If the card is a joker, replace it with the non-joker card
-			if c2.Value() == cJ {
-				newHand[pos] = c
-			} else {
-				newHand[pos] = c2
-			}
-		}
-		// Add new hand to hands
-		hands = append(hands, newHand)
-	}
+// 	// Loop over non-joker cards in map and create a new hand for each, replacing any jokers
+// 	for c := range nonJokerCards {
+// 		// Create a new hand
+// 		var newHand [5]*Card
+// 		// Loop through cards
+// 		for pos, c2 := range cards {
+// 			// If the card is a joker, replace it with the non-joker card
+// 			if c2.Value() == cJ {
+// 				newHand[pos] = c
+// 			} else {
+// 				newHand[pos] = c2
+// 			}
+// 		}
+// 		// Add new hand to hands
+// 		hands = append(hands, newHand)
+// 	}
 
-	return hands
+// 	return hands
 
-}
+// }
 
 func ClassifyHandType(cards [5]*Card) HandType { // Classify hand
 	var handType HandType
 
 	// Add cards to map
 	var cardTally = make(map[int]int)
+	var jokers int
 	// Loop through cards
 	for _, c := range cards {
-		// Add card tally to map
-		cardTally[c.Value()]++
+		if c.Value() == cJ {
+			jokers++
+		} else {
+			// Add card tally to map
+			cardTally[c.Value()]++
+		}
 	}
+
+	// Find card with the highest count
+	var mostCommonCard int
+	for k, v := range cardTally {
+		if mostCommonCard == 0 || v > cardTally[mostCommonCard] {
+			mostCommonCard = k
+		}
+	}
+
+	// Add jokers to most common card
+	cardTally[mostCommonCard] += jokers
 
 	// spew.Dump(cardTally)
 	switch len(cardTally) {
@@ -295,3 +312,55 @@ func ClassifyHandType(cards [5]*Card) HandType { // Classify hand
 
 	return handType
 }
+
+// func ClassifyHandType(cards [5]*Card) HandType { // Classify hand
+// 	var handType HandType
+
+// 	// Add cards to map
+// 	var cardTally = make(map[int]int)
+// 	// Loop through cards
+// 	for _, c := range cards {
+// 		// Add card tally to map
+// 		cardTally[c.Value()]++
+// 	}
+
+// 	// spew.Dump(cardTally)
+// 	switch len(cardTally) {
+// 	case 5:
+// 		handType = HighCard
+// 	case 4:
+// 		handType = OnePair
+// 	case 3:
+// 		// Could be multiple options
+// 		// Check for 3 of a kind
+// 		for _, v := range cardTally {
+// 			if v == 3 {
+// 				handType = ThreeOfAKind
+// 				break
+// 			}
+// 		}
+// 		// Check for 2 pairs
+// 		if handType == 0 {
+// 			handType = TwoPair
+// 		}
+// 	case 2:
+// 		// Could be multiple options
+// 		// Check for 4 of a kind
+// 		for _, v := range cardTally {
+// 			if v == 4 {
+// 				handType = FourOfAKind
+// 				break
+// 			}
+// 		}
+// 		// Check for full house
+// 		if handType == 0 {
+// 			handType = FullHouse
+// 		}
+// 	case 1:
+// 		handType = FiveOfAKind
+// 	default:
+// 		panic("Invalid hand")
+// 	}
+
+// 	return handType
+// }
