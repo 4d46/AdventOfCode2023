@@ -54,3 +54,9 @@ func loadFileContents(filename string) string {
 go build
 
 git checkout -b "$DIRECTORY"
+
+git add main.go go.mod
+
+git commit -m "Day ${1} Starter"
+
+git push --set-upstream upstream "$DIRECTORY"
