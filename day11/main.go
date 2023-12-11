@@ -26,23 +26,130 @@ func main() {
 	fmt.Printf("Advent of Code 2023 - Day %2d\n", 11)
 
 	// Load the input data
-	galaxyMapStr := GalaxyMapExample1
-	//galaxyMapStr:=loadFileContents("input.txt")
+	// galaxyMapStr := GalaxyMapExample1
+	galaxyMapStr := loadFileContents("galaxy_map.txt")
 
 	// Parse the input data
 	galaxyMap := parseGalaxyMap(galaxyMapStr)
 	// Print the galaxy map
 	fmt.Println(galaxyMap)
+	// printGalaxyMap(galaxyMap)
 
 	// Expand the Galaxy Map
 	blankRows := findEmptyRows(galaxyMap)
+	fmt.Println("Blank Rows:")
+	fmt.Println(blankRows)
 	blankColumns := findEmptyColumns(galaxyMap)
+	fmt.Println("Blank Columns:")
+	fmt.Println(blankColumns)
 	// Expand the galaxy map
 	expandedGalaxyMap := expandGalaxyMap(galaxyMap, blankRows, blankColumns)
+	printGalaxyMapDiff(galaxyMap, expandedGalaxyMap)
 	// Print the expanded galaxy map
 	// fmt.Println(expandedGalaxyMap)
 	// Print the expanded galaxy map
-	printGalaxyMap(expandedGalaxyMap)
+	// printGalaxyMap(expandedGalaxyMap)
+
+	// Calculate the distances between all galaxies
+	distances := calculateDistances(expandedGalaxyMap)
+	// fmt.Println(distances)
+	totalDistance := calculateSumOfDistances(distances)
+	fmt.Printf("Sum of all distances: %d\n", totalDistance)
+}
+
+// Function to print the difference between two galaxy maps
+func printGalaxyMapDiff(galaxyMap1 []Coordinate, galaxyMap2 []Coordinate) {
+	// Loop over the galaxy map
+	for i, _ := range galaxyMap1 {
+		// Print the galaxy map
+		fmt.Printf("%d: %d,%d ➞ %d,%d\n", i, galaxyMap1[i].x, galaxyMap1[i].y, galaxyMap2[i].x, galaxyMap2[i].y)
+	}
+}
+
+// Calculate the sum of all distance between all galaxies
+func calculateSumOfDistances(distances map[string]int) int {
+	// Create an empty array of distances
+	sumOfDistances := 0
+
+	// Loop over the distances
+	for _, distance := range distances {
+		// Add the distance to the sum of distances
+		sumOfDistances += distance
+	}
+
+	// Return the sum of distances
+	return sumOfDistances
+}
+
+// Calculate the distances between all galaxies
+func calculateDistances(galaxyMap []Coordinate) map[string]int {
+	// Create an empty map of distances
+	distances := map[string]int{}
+
+	// Loop over the galaxy map
+	for i, galaxy1 := range galaxyMap {
+		// Loop over the galaxy map
+		for j, galaxy2 := range galaxyMap {
+			if i == j {
+				continue
+			}
+
+			// Calculate the distance between the two galaxies
+			distance := calculateDistance(galaxy1, galaxy2)
+
+			var name string
+			if i < j {
+				name = fmt.Sprintf("%d_%d", i, j)
+			} else {
+				name = fmt.Sprintf("%d_%d", j, i)
+			}
+			// Add the distance to the map of distances
+			distances[name] = distance
+		}
+	}
+
+	// Return the map of distances
+	return distances
+}
+
+// func calculateDistances(galaxyMap []Coordinate) map[int]map[int]int {
+// 	// Create an empty map of distances
+// 	distances := map[int]map[int]int{}
+
+// 	// Loop over the galaxy map
+// 	for i, galaxy1 := range galaxyMap {
+// 		// Create an empty map of distances
+// 		distances[i] = map[int]int{}
+
+// 		// Loop over the galaxy map
+// 		for j, galaxy2 := range galaxyMap {
+// 			// Calculate the distance between the two galaxies
+// 			distance := calculateDistance(galaxy1, galaxy2)
+
+// 			// Add the distance to the map of distances
+// 			distances[i][j] = distance
+// 		}
+// 	}
+
+// 	// Return the map of distances
+// 	return distances
+// }
+
+// Calculate the distance between two galaxies in steps
+func calculateDistance(galaxy1 Coordinate, galaxy2 Coordinate) int {
+	// Calculate the distance between the two galaxies
+	distance := abs(galaxy1.x-galaxy2.x) + abs(galaxy1.y-galaxy2.y)
+
+	// Return the distance
+	return distance
+}
+
+// Integer Abs function
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // Expand the galaxy map
@@ -57,8 +164,8 @@ func expandGalaxyMap(galaxyMap []Coordinate, blankRows []int, blankColumns []int
 
 		// Loop over the blank rows
 		for _, blankRow := range blankRows {
-			// Increment the y value if the blank row is above the coordinate
-			if blankRow < y {
+			// Increment the y value if the blank row is above the original coordinate
+			if blankRow < coordinate.y {
 				y++
 			}
 		}
@@ -66,7 +173,7 @@ func expandGalaxyMap(galaxyMap []Coordinate, blankRows []int, blankColumns []int
 		// Loop over the blank columns
 		for _, blankColumn := range blankColumns {
 			// Increment the x value if the blank column is to the left of the coordinate
-			if blankColumn < x {
+			if blankColumn < coordinate.x {
 				x++
 			}
 		}
