@@ -166,7 +166,9 @@ func expandGalaxyMap(galaxyMap []Coordinate, blankRows []int, blankColumns []int
 		for _, blankRow := range blankRows {
 			// Increment the y value if the blank row is above the original coordinate
 			if blankRow < coordinate.y {
-				y++
+				// y++
+				// Replacing the 1 row with 1000000 rows, so add another 999999 to the y value
+				y += 999999
 			}
 		}
 
@@ -174,7 +176,9 @@ func expandGalaxyMap(galaxyMap []Coordinate, blankRows []int, blankColumns []int
 		for _, blankColumn := range blankColumns {
 			// Increment the x value if the blank column is to the left of the coordinate
 			if blankColumn < coordinate.x {
-				x++
+				// x++
+				// Replacing the 1 column with 1000000 columns, so add another 999999 to the x value
+				x += 999999
 			}
 		}
 
