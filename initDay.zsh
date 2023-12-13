@@ -57,6 +57,6 @@ git checkout -b "$DIRECTORY"
 
 git add main.go go.mod
 
-git commit -m "Day ${1} Starter"
+git commit -m "Day ${1}"
 
 git push --set-upstream upstream "$DIRECTORY"
