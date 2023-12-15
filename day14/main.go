@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -132,8 +133,8 @@ func main() {
 	defer pprof.StopCPUProfile()
 
 	// numCycles := 3
-	// numCycles := 1000000000
-	numCycles := 500000
+	numCycles := 1000000000
+	// numCycles := 500000
 	fmt.Printf("\nRolled Cycles (%d):\n", numCycles)
 	start := time.Now()
 	for i := 0; i < numCycles; i++ {
@@ -143,6 +144,8 @@ func main() {
 				timeElapsed := time.Since(start)
 				fmt.Printf(" took %s", timeElapsed.Round(time.Second))
 			}
+			cycledLoad := calculateLoad(mapStateToString(m))
+			fmt.Printf(" Load: %d", cycledLoad)
 			fmt.Println()
 			start = time.Now()
 		}
@@ -152,6 +155,8 @@ func main() {
 		// fmt.Println()
 		// printMapState(m)
 	}
+	// NOTE: Start repeating fairly quickly, so look st the output pattern and project forward to 1 billion cycles for answer
+
 	fmt.Println(strings.Join(mapStateToString(m), "\n"))
 	// printMapState(m)
 
@@ -409,97 +414,114 @@ func rollRocksMapStateCycle(m *mapState) {
 func rollRocksMapState(m *mapState, dir int) {
 	// Depending on the direction, roll the rocks in the map in that direction
 	// 0 = north, 1 = east, 2 = south, 3 = west
+	wg := new(sync.WaitGroup)
 	switch dir {
 	case north:
 		// Roll the rocks north, loop over each column
 		for i := 0; i < len(m.gapEnds[north]); i++ {
+			wg.Add(1)
 			// fmt.Printf("Column %d\n", i)
-			// Loop over each gap between rocks in the column, counting rolling rocks
-			for e := 0; e < len(m.gapEnds[north][i])-1; e++ {
-				rollingRocks := 0
-				// Count the number of rocks in the gap and remove rolling rocks
-				// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[north][i][e], m.gapEnds[north][i][e+1])
-				for j := m.gapEnds[north][i][e] + 1; j < m.gapEnds[north][i][e+1]; j++ {
-					if m.roundRocks[j][i] {
-						rollingRocks++
-						m.roundRocks[j][i] = false
+			go func(m *mapState, i int, wg *sync.WaitGroup) {
+				defer wg.Done()
+				// Loop over each gap between rocks in the column, counting rolling rocks
+				for e := 0; e < len(m.gapEnds[north][i])-1; e++ {
+					rollingRocks := 0
+					// Count the number of rocks in the gap and remove rolling rocks
+					// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[north][i][e], m.gapEnds[north][i][e+1])
+					for j := m.gapEnds[north][i][e] + 1; j < m.gapEnds[north][i][e+1]; j++ {
+						if m.roundRocks[j][i] {
+							rollingRocks++
+							m.roundRocks[j][i] = false
+						}
+					}
+					// fmt.Printf("  Rolling rocks: %d\n", rollingRocks)
+					// Add any rolling rocks to the top of the gap
+					for j := m.gapEnds[north][i][e] + 1; j < m.gapEnds[north][i][e]+rollingRocks+1; j++ {
+						m.roundRocks[j][i] = true
 					}
 				}
-				// fmt.Printf("  Rolling rocks: %d\n", rollingRocks)
-				// Add any rolling rocks to the top of the gap
-				for j := m.gapEnds[north][i][e] + 1; j < m.gapEnds[north][i][e]+rollingRocks+1; j++ {
-					m.roundRocks[j][i] = true
-				}
-			}
-
+			}(m, i, wg)
 		}
 	case east:
 		// Roll the rocks east
 		for i := 0; i < len(m.gapEnds[east]); i++ {
+			wg.Add(1)
 			// fmt.Printf("Column %d\n", i)
-			// Loop over each gap between rocks in the column, counting rolling rocks
-			for e := 0; e < len(m.gapEnds[east][i])-1; e++ {
-				rollingRocks := 0
-				// Count the number of rocks in the gap and remove rolling rocks
-				// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[east][i][e], m.gapEnds[east][i][e+1])
-				for j := m.gapEnds[east][i][e] + 1; j < m.gapEnds[east][i][e+1]; j++ {
-					if m.roundRocks[i][m.dim-1-j] {
-						rollingRocks++
-						m.roundRocks[i][m.dim-1-j] = false
+			go func(m *mapState, i int, wg *sync.WaitGroup) {
+				defer wg.Done()
+				// Loop over each gap between rocks in the column, counting rolling rocks
+				for e := 0; e < len(m.gapEnds[east][i])-1; e++ {
+					rollingRocks := 0
+					// Count the number of rocks in the gap and remove rolling rocks
+					// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[east][i][e], m.gapEnds[east][i][e+1])
+					for j := m.gapEnds[east][i][e] + 1; j < m.gapEnds[east][i][e+1]; j++ {
+						if m.roundRocks[i][m.dim-1-j] {
+							rollingRocks++
+							m.roundRocks[i][m.dim-1-j] = false
+						}
+					}
+					// Add any rolling rocks to the top of the gap
+					for j := m.gapEnds[east][i][e] + 1; j < m.gapEnds[east][i][e]+rollingRocks+1; j++ {
+						m.roundRocks[i][m.dim-1-j] = true
 					}
 				}
-				// Add any rolling rocks to the top of the gap
-				for j := m.gapEnds[east][i][e] + 1; j < m.gapEnds[east][i][e]+rollingRocks+1; j++ {
-					m.roundRocks[i][m.dim-1-j] = true
-				}
-			}
+			}(m, i, wg)
 		}
 	case south:
 		// Roll the rocks south
 		for i := 0; i < len(m.gapEnds[south]); i++ {
+			wg.Add(1)
 			// fmt.Printf("Column %d\n", i)
-			// Loop over each gap between rocks in the column, counting rolling rocks
-			for e := 0; e < len(m.gapEnds[south][i])-1; e++ {
-				rollingRocks := 0
-				// Count the number of rocks in the gap and remove rolling rocks
-				// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[south][i][e], m.gapEnds[south][i][e+1])
-				for j := m.gapEnds[south][i][e] + 1; j < m.gapEnds[south][i][e+1]; j++ {
-					if m.roundRocks[m.dim-1-j][m.dim-1-i] {
-						rollingRocks++
-						m.roundRocks[m.dim-1-j][m.dim-1-i] = false
+			go func(m *mapState, i int, wg *sync.WaitGroup) {
+				defer wg.Done()
+				// Loop over each gap between rocks in the column, counting rolling rocks
+				for e := 0; e < len(m.gapEnds[south][i])-1; e++ {
+					rollingRocks := 0
+					// Count the number of rocks in the gap and remove rolling rocks
+					// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[south][i][e], m.gapEnds[south][i][e+1])
+					for j := m.gapEnds[south][i][e] + 1; j < m.gapEnds[south][i][e+1]; j++ {
+						if m.roundRocks[m.dim-1-j][m.dim-1-i] {
+							rollingRocks++
+							m.roundRocks[m.dim-1-j][m.dim-1-i] = false
+						}
+					}
+					// Add any rolling rocks to the top of the gap
+					for j := m.gapEnds[south][i][e] + 1; j < m.gapEnds[south][i][e]+rollingRocks+1; j++ {
+						m.roundRocks[m.dim-1-j][m.dim-1-i] = true
 					}
 				}
-				// Add any rolling rocks to the top of the gap
-				for j := m.gapEnds[south][i][e] + 1; j < m.gapEnds[south][i][e]+rollingRocks+1; j++ {
-					m.roundRocks[m.dim-1-j][m.dim-1-i] = true
-				}
-			}
+			}(m, i, wg)
 		}
 
 	case west:
 		// Roll the rocks west
 		for i := 0; i < len(m.gapEnds[west]); i++ {
-			// fmt.Printf("Column %d\n", i)
-			// Loop over each gap between rocks in the column, counting rolling rocks
-			for e := 0; e < len(m.gapEnds[west][i])-1; e++ {
-				rollingRocks := 0
-				// Count the number of rocks in the gap and remove rolling rocks
-				// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[west][i][e], m.gapEnds[west][i][e+1])
-				for j := m.gapEnds[west][i][e] + 1; j < m.gapEnds[west][i][e+1]; j++ {
-					if m.roundRocks[m.dim-1-i][j] {
-						rollingRocks++
-						m.roundRocks[m.dim-1-i][j] = false
+			wg.Add(1)
+			go func(m *mapState, i int, wg *sync.WaitGroup) {
+				defer wg.Done()
+				// fmt.Printf("Column %d\n", i)
+				// Loop over each gap between rocks in the column, counting rolling rocks
+				for e := 0; e < len(m.gapEnds[west][i])-1; e++ {
+					rollingRocks := 0
+					// Count the number of rocks in the gap and remove rolling rocks
+					// fmt.Printf("Gap %d: %d to %d\n", e, m.gapEnds[west][i][e], m.gapEnds[west][i][e+1])
+					for j := m.gapEnds[west][i][e] + 1; j < m.gapEnds[west][i][e+1]; j++ {
+						if m.roundRocks[m.dim-1-i][j] {
+							rollingRocks++
+							m.roundRocks[m.dim-1-i][j] = false
+						}
+					}
+					// Add any rolling rocks to the top of the gap
+					for j := m.gapEnds[west][i][e] + 1; j < m.gapEnds[west][i][e]+rollingRocks+1; j++ {
+						m.roundRocks[m.dim-1-i][j] = true
 					}
 				}
-				// Add any rolling rocks to the top of the gap
-				for j := m.gapEnds[west][i][e] + 1; j < m.gapEnds[west][i][e]+rollingRocks+1; j++ {
-					m.roundRocks[m.dim-1-i][j] = true
-				}
-			}
+			}(m, i, wg)
 		}
 	default:
 		panic("Invalid direction")
 	}
+	wg.Wait()
 }
 
 // Print the map state
