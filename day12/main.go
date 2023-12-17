@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Spring map entry
@@ -27,8 +29,16 @@ const springExample1 = `???.### 1,1,3
 func main() {
 	fmt.Printf("Advent of Code 2023 - Day %2d\n", 12)
 
-	springMapStr := springExample1
-	// springMapStr := loadFileContents("damaged_springs.txt")
+	test := fmt.Sprintf("%v", []int{1, 2, 3, 4}[1:])
+	fmt.Println(test)
+
+	// springMapStr := springExample1
+	springMapStr := loadFileContents("damaged_springs.txt")
+
+	fmt.Print("Building Truth table: ")
+	ttable := buildSpringMapTruthTable()
+	fmt.Println("DONE")
+	spew.Dump(ttable[3])
 
 	// Parse the spring map
 	springMap := parseSpringMap(springMapStr)
@@ -42,22 +52,41 @@ func main() {
 	printSpringMap(springMap, false)
 
 	fmt.Println("\nAfter:")
-	// Calculate possible spring map arrangements for all spring maps
-	for i, _ := range springMap {
+	// // Calculate possible spring map arrangements for all spring maps
+	// for i, _ := range springMap {
 
-		springMap[i].arrangements = calcPossibleSpringMapCombinations(springMap[i])
-		printSpringMapEntry(springMap[i])
-	}
+	// 	springMap[i].arrangements = calcPossibleSpringMapCombinations(springMap[i])
+	// 	printSpringMapEntry(springMap[i])
+	// }
 	// printSpringMap(springMap, true)
 
 	// Calculate sum of possible arrangements
+	// sum := 0
+	// for _, springMapEntry := range springMap {
+	// 	// sum += len(springMapEntry.arrangements)
+	// 	sum += springMapEntry.arrangements
+	// 	panic("Not implemented")
+	// }
+
+	// Use new recursive function
 	sum := 0
-	for _, springMapEntry := range springMap {
-		// sum += len(springMapEntry.arrangements)
-		sum += springMapEntry.arrangements
-		panic("Not implemented")
+	for i := range springMap {
+		sum += computePossibleSpringMapCombinationsRecursive2(&springMap[i], &ttable, false)
+		fmt.Printf("Spring Map %2d/%d\n", i, len(springMap))
 	}
 	fmt.Printf("\nSum of possible arrangements: %d\n", sum)
+
+	// wg := sync.WaitGroup{}
+	// for i, sme := range springMap {
+	// 	wg.Add(1)
+	// 	go func(sme *springMapEntry, ttable *[15]map[string]bool, print bool, i int) {
+	// 		sum := computePossibleSpringMapCombinationsRecursive(sme, ttable, false)
+	// 		fmt.Printf("Spring Map %2d/%d\n", i, len(springMap))
+	// 		wg.Done()
+	// 	}(&sme, &ttable, false, i)
+	// }
+	// wg.Wait()
+	// fmt.Printf("\nSum of possible arrangements: %d\n", sum)
 }
 
 // Function to unfold the spring map
@@ -86,12 +115,13 @@ func calcPossibleSpringMapCombinations(springMap springMapEntry) int {
 
 	// Calculate number of broken springs
 	var numUnkownBrokenSprings int
+	spew.Dump(springMap)
 	for _, springListEntry := range springMap.springList {
 		numUnkownBrokenSprings += springListEntry
 	}
 	// Remove the number of known broken springs from the list
 	numUnkownBrokenSprings -= countCharacters(springMap.springMap, '#')
-	// fmt.Println("numUnkownBrokenSprings:", numUnkownBrokenSprings)
+	fmt.Println("numUnkownBrokenSprings:", numUnkownBrokenSprings)
 
 	// Check if there are unknowns, if not just return 1 for the number of solutions
 	if springMap.numUnkonwns < 1 {
@@ -99,8 +129,8 @@ func calcPossibleSpringMapCombinations(springMap springMapEntry) int {
 	}
 
 	// Calculate the number of possible combinations
-	numPossibleCombinations := uint64(springMap.numUnkonwns)
-	// fmt.Printf("numPossibleCombinations: %d\n", numPossibleCombinations)
+	numPossibleCombinations := uint64(1 << springMap.numUnkonwns)
+	fmt.Printf("numPossibleCombinations: %d\n", numPossibleCombinations)
 
 	// Loop over all possible combinations
 	var i uint64
@@ -111,6 +141,7 @@ func calcPossibleSpringMapCombinations(springMap springMapEntry) int {
 		if bits.OnesCount64(i) != numUnkownBrokenSprings {
 			continue
 		}
+		// fmt.Printf("i: %d\n", i)
 		mergedSpringMap := mergeSpringMap(springMap.springMap, i)
 		// fmt.Printf("mergedSpringMap: %s\n", mergedSpringMap)
 		// mergedSpringMapList := classifySpringMap(mergedSpringMap)
@@ -121,6 +152,228 @@ func calcPossibleSpringMapCombinations(springMap springMapEntry) int {
 		}
 	}
 	return possibleSpringMapCombinations
+}
+
+// Start recursive SpringMap Combinations compute
+func computePossibleSpringMapCombinationsRecursive2(springMap *springMapEntry, ttable *[15]map[string]bool, print bool) int {
+	// Lookup
+	lookup := make(map[string]int)
+	// Start recursive function at begining of string and section list, with a gap because it is at the start of the string
+	result := computePossibleSpringMapCombinations2(springMap, ttable, &lookup, print, 0, 0, 1)
+	return result
+}
+
+// Calculate number of possible spring map combinations
+func computePossibleSpringMapCombinations2(springMap *springMapEntry, ttable *[15]map[string]bool, lookup *map[string]int, print bool, pos int, listPos int, gap int) int {
+	// Serialise the remaining ask
+	ask := fmt.Sprintf("%s%v", springMap.springMap[pos:], springMap.springList[listPos:])
+	// Check if we have already calculated this and return the result
+	if val, ok := (*lookup)[ask]; ok {
+		return val
+	}
+
+	if print {
+		if pos >= len(springMap.springMap) {
+			fmt.Printf("string: %-16s, inf: %-16s, pos: %d, listPos: %d, gap: %d\n", springMap.springMap[:pos]+"|", pos, listPos, gap)
+		} else {
+			fmt.Printf("string: %-16s, inf: %-16s, pos: %d, listPos: %d, gap: %d\n", springMap.springMap[:pos+1], pos, listPos, gap)
+		}
+	}
+	// Check if we have passed the end of the string
+	if pos >= len(springMap.springMap) {
+		// Check if we have coded all blocks
+		if listPos >= len(springMap.springList) {
+			// No more segments, found a valid combination
+			if print {
+				fmt.Println("          ^^^^^^^^")
+			}
+			return 1
+		} else {
+			// More segments, but we've passed the end of the string, not valid
+			return 0
+		}
+	} else if listPos >= len(springMap.springList) {
+		// All segments accounted for, check if we have broken strings left in string
+		if strings.ContainsRune(springMap.springMap[pos:], '#') {
+			// Broken strings left in string, not valid
+			return 0
+		} else {
+			if print {
+				fmt.Println("          ^^^^^^^^")
+			}
+			return 1
+		}
+	}
+
+	// Still valid, check next character
+	if springMap.springMap[pos] == '.' {
+		// If we have a . in the string next segment isn't starting, return the result of the next position, indicating gap has increased
+		return computePossibleSpringMapCombinations2(springMap, ttable, lookup, print, pos+1, listPos, gap+1)
+	} else if springMap.springMap[pos] == '#' {
+		// If there isn't a gap, this isn't valid, return 0
+		if gap < 1 {
+			return 0
+		}
+		// If there is a gap, confirm if the next segment is valid and doesn't exceed the end of the string
+		sectionLen := springMap.springList[listPos]
+		// if print {
+		// 	fmt.Printf("sectionLen:%d  %d/%d [%s]\n", pos, sectionLen, len(springMap.springMap), springMap.springMap[pos:pos+sectionLen])
+		// }
+		if pos+sectionLen <= len(springMap.springMap) {
+			// If it fits in the string, check if it is a valid segment
+			if _, match := ttable[sectionLen-1][springMap.springMap[pos:pos+sectionLen]]; match {
+				// If the next segment is valid, return the result of the next position, increaseing sections accounted for and resetting gap
+				return computePossibleSpringMapCombinations2(springMap, ttable, lookup, print, pos+sectionLen, listPos+1, 0)
+			}
+		}
+		// Will only get here If the next segment isn't valid, return 0
+		return 0
+	} else if springMap.springMap[pos] == '?' {
+		var sum int
+
+		// Here we have options
+		// If gap is 0, we can't start a new segment, so this must be a gap
+		if gap == 0 {
+			return computePossibleSpringMapCombinations2(springMap, ttable, lookup, print, pos+1, listPos, gap+1)
+		}
+		// If gap is > 0, we can start a new segment or add another gap, try both
+		sum += computePossibleSpringMapCombinations2(springMap, ttable, lookup, print, pos+1, listPos, gap+1)
+		sectionLen := springMap.springList[listPos]
+		// Check this won't exceed the end of the string
+		if pos+sectionLen <= len(springMap.springMap) {
+			// If it fits in the string, check if it is a valid segment
+			if _, match := ttable[sectionLen-1][springMap.springMap[pos:pos+sectionLen]]; match {
+				sum += computePossibleSpringMapCombinations2(springMap, ttable, lookup, print, pos+sectionLen, listPos+1, 0)
+			}
+		}
+		// Store the result in the lookup
+		(*lookup)[ask] = sum
+		return sum
+	} else {
+		panic("Invalid character in spring map")
+	}
+}
+
+// Start recursive SpringMap Combinations compute
+func computePossibleSpringMapCombinationsRecursive(springMap *springMapEntry, ttable *[15]map[string]bool, print bool) int {
+	// Start recursive function at begining of string and section list, with a gap because it is at the start of the string
+	result := computePossibleSpringMapCombinations(springMap, ttable, print, "", 0, 0, 1)
+	return result
+}
+
+// Calculate number of possible spring map combinations
+func computePossibleSpringMapCombinations(springMap *springMapEntry, ttable *[15]map[string]bool, print bool, inferredStr string, pos int, listPos int, gap int) int {
+	if print {
+		if pos >= len(springMap.springMap) {
+			fmt.Printf("string: %-16s, inf: %-16s, pos: %d, listPos: %d, gap: %d\n", springMap.springMap[:pos]+"|", inferredStr, pos, listPos, gap)
+		} else {
+			fmt.Printf("string: %-16s, inf: %-16s, pos: %d, listPos: %d, gap: %d\n", springMap.springMap[:pos+1], inferredStr, pos, listPos, gap)
+		}
+	}
+	// Check if we have passed the end of the string
+	if pos >= len(springMap.springMap) {
+		// Check if we have coded all blocks
+		if listPos >= len(springMap.springList) {
+			// No more segments, found a valid combination
+			if print {
+				fmt.Println("          ^^^^^^^^")
+			}
+			return 1
+		} else {
+			// More segments, but we've passed the end of the string, not valid
+			return 0
+		}
+	} else if listPos >= len(springMap.springList) {
+		// All segments accounted for, check if we have broken strings left in string
+		if strings.ContainsRune(springMap.springMap[pos:], '#') {
+			// Broken strings left in string, not valid
+			return 0
+		} else {
+			if print {
+				fmt.Println("          ^^^^^^^^")
+			}
+			return 1
+		}
+	}
+
+	// Still valid, check next character
+	if springMap.springMap[pos] == '.' {
+		// If we have a . in the string next segment isn't starting, return the result of the next position, indicating gap has increased
+		return computePossibleSpringMapCombinations(springMap, ttable, print, inferredStr+".", pos+1, listPos, gap+1)
+	} else if springMap.springMap[pos] == '#' {
+		// If there isn't a gap, this isn't valid, return 0
+		if gap < 1 {
+			return 0
+		}
+		// If there is a gap, confirm if the next segment is valid and doesn't exceed the end of the string
+		sectionLen := springMap.springList[listPos]
+		// if print {
+		// 	fmt.Printf("sectionLen:%d  %d/%d [%s]\n", pos, sectionLen, len(springMap.springMap), springMap.springMap[pos:pos+sectionLen])
+		// }
+		if pos+sectionLen <= len(springMap.springMap) {
+			// If it fits in the string, check if it is a valid segment
+			if _, match := ttable[sectionLen-1][springMap.springMap[pos:pos+sectionLen]]; match {
+				// If the next segment is valid, return the result of the next position, increaseing sections accounted for and resetting gap
+				return computePossibleSpringMapCombinations(springMap, ttable, print, inferredStr+strings.Repeat("#", sectionLen), pos+sectionLen, listPos+1, 0)
+			}
+		}
+		// Will only get here If the next segment isn't valid, return 0
+		return 0
+	} else if springMap.springMap[pos] == '?' {
+		var sum int
+
+		// Here we have options
+		// If gap is 0, we can't start a new segment, so this must be a gap
+		if gap == 0 {
+			return computePossibleSpringMapCombinations(springMap, ttable, print, inferredStr+".", pos+1, listPos, gap+1)
+		}
+		// If gap is > 0, we can start a new segment or add another gap, try both
+		sum += computePossibleSpringMapCombinations(springMap, ttable, print, inferredStr+".", pos+1, listPos, gap+1)
+		sectionLen := springMap.springList[listPos]
+		// Check this won't exceed the end of the string
+		if pos+sectionLen <= len(springMap.springMap) {
+			// If it fits in the string, check if it is a valid segment
+			if _, match := ttable[sectionLen-1][springMap.springMap[pos:pos+sectionLen]]; match {
+				sum += computePossibleSpringMapCombinations(springMap, ttable, print, inferredStr+strings.Repeat("#", sectionLen), pos+sectionLen, listPos+1, 0)
+			}
+		}
+		return sum
+	} else {
+		panic("Invalid character in spring map")
+	}
+}
+
+// Build truth table for spring map
+// 1. Build a list of all possible spring map segments, upto 15 characters long
+// 2. Calculate if the spring map segment is valid and store in the map
+func buildSpringMapTruthTable() [15]map[string]bool {
+	table := [15]map[string]bool{}
+	for i := 0; i < 15; i++ {
+		buildSpringMapTrueTableForLength(&table, i+1)
+	}
+	return table
+}
+
+func buildSpringMapTrueTableForLength(table *[15]map[string]bool, length int) {
+	// Create a map to store the truth table
+	(*table)[length-1] = make(map[string]bool)
+
+	if length == 1 {
+		for _, c := range []rune{'#', '?'} {
+			// Add the character to the spring map segment
+			(*table)[length-1][string(c)] = true
+		}
+	} else {
+		// Loop ovar all previous valid spring map segments
+		for springMapSegment, _ := range (*table)[length-2] {
+			// Loop over all possible characters to add to the spring map segment
+			// Characters are # and ? are valid, add those and ignore all others
+			for _, c := range []rune{'#', '?'} {
+				// Add the character to the spring map segment
+				(*table)[length-1][springMapSegment+string(c)] = true
+			}
+		}
+	}
 }
 
 // Fast function comparing if 2 int arrays are the same

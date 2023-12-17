@@ -65,3 +65,87 @@ func TestTwoToPowerOf(t *testing.T) {
 		}
 	}
 }
+
+// Test for computePossibleSpringMapCombinationsRecursive
+func TestComputePossibleSpringMapCombinationsRecursive(t *testing.T) {
+	ttable := buildSpringMapTruthTable()
+
+	// Define the test cases
+	var testCases = []struct {
+		springMap *springMapEntry
+		expected  int
+	}{
+		// Test case 1
+		{
+			springMap: &springMapEntry{
+				// Define the springMapEntry fields here
+				springMap:  "???.###",
+				springList: []int{1, 1, 3},
+			},
+
+			expected: 1, // Define the expected result here
+		},
+		// Test case 2
+		{
+			springMap: &springMapEntry{
+				// Define the springMapEntry fields here
+				springMap:  ".??..??...?##.",
+				springList: []int{1, 1, 3},
+			},
+
+			expected: 4, // Define the expected result here
+		},
+		// Test case 3
+		{
+			springMap: &springMapEntry{
+				// Define the springMapEntry fields here
+				springMap:  "?#?#?#?#?#?#?#?",
+				springList: []int{1, 3, 1, 6},
+			},
+
+			expected: 1, // Define the expected result here
+		},
+		// Test case 4
+		{
+			springMap: &springMapEntry{
+				// Define the springMapEntry fields here
+				springMap:  "????.#...#...",
+				springList: []int{4, 1, 1},
+			},
+
+			expected: 1, // Define the expected result here
+		},
+		// Test case 5
+		{
+			springMap: &springMapEntry{
+				// Define the springMapEntry fields here
+				springMap:  "????.######..#####.",
+				springList: []int{1, 6, 5},
+			},
+
+			expected: 4, // Define the expected result here
+		},
+		// Test case 6
+		{
+			springMap: &springMapEntry{
+				// Define the springMapEntry fields here
+				springMap:  "?###????????",
+				springList: []int{3, 2, 1},
+			},
+
+			expected: 10, // Define the expected result here
+		},
+
+		// Add more test cases as needed
+	}
+
+	// Loop over the test cases
+	for _, tc := range testCases {
+		// Call computePossibleSpringMapCombinationsRecursive
+		result := computePossibleSpringMapCombinationsRecursive(tc.springMap, &ttable, true)
+		// Check the returned result
+		if result != tc.expected {
+			t.Errorf("computePossibleSpringMapCombinationsRecursive(%v) = %d, want %d", tc.springMap, result, tc.expected)
+		}
+	}
+}
