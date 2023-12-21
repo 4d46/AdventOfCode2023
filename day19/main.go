@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -36,10 +35,9 @@ type part struct {
 }
 
 type partLimits struct {
-	xMin, xMax int
-	mMin, mMax int
-	aMin, aMax int
-	sMin, sMax int
+	min   map[string]int
+	max   map[string]int
+	valid bool
 }
 
 const example1Str = `px{a<2006:qkq,m>2090:A,rfg}
@@ -64,8 +62,8 @@ func main() {
 	fmt.Printf("Advent of Code 2023 - Day %2d\n", 19)
 
 	// Load input
-	input := example1Str
-	// input := loadFileContents("workflowAndParts.txt")
+	// input := example1Str
+	input := loadFileContents("workflowAndParts.txt")
 
 	// Parse input
 	ruleSet, parts := parseInput(input)
@@ -84,33 +82,70 @@ func main() {
 	// Part 2
 	// Loop over rules calculating what sets of part values will pass
 	// acceptableParts := generaliseRules(ruleSet, "crn")
-	// acceptableParts := walkRuleSet(ruleSet, "crn", []partLimits{makeMaxPartLimits()})
-	acceptableParts := walkRuleSet(ruleSet, "qkq", []partLimits{makeMaxPartLimits()})
+	// totalParts := walkRuleSet(ruleSet, "crn", makeMaxPartLimits(), 0,true)
+	// totalParts := walkRuleSet(ruleSet, "qkq", makeMaxPartLimits(), 0, true)
+	totalParts := walkRuleSet(ruleSet, "in", makeMaxPartLimits(), 0, false)
 
-	spew.Dump(acceptableParts)
+	fmt.Printf("Part 2 Total parts: %d\n", totalParts)
 }
 
-func walkRuleSet(rules ruleSet, ruleName string, branchLimits []partLimits) []partLimits {
-	var resultingLimits []partLimits
-	// Fetch workflow
-	wflow := rules.workflows[ruleName]
-	fmt.Printf("ruleName: %s\n", ruleName)
-	var branchLoopLimits []partLimits
-	branchLoopLimits = append(branchLoopLimits, branchLimits...)
-	// Check in case we are already at the end
-	switch ruleName {
-	case "A":
-		// This is an accept rule
-		// fmt.Printf("Accept rule: %s\n", ruleName)
-		// spew.Dump(branchLoopLimits)
-		return branchLimits
-	case "R":
-		// This is a reject rule, nothing from this path is valid
-		return []partLimits{}
+// Walk through ruleSet like a tree, amending partlimits as we go.  When we hit the end of a branch
+// calculate the number of valid combinations of part values and return that back up
+func walkRuleSet(rules ruleSet, wflowName string, branchLimits partLimits, stack int, debug bool) int {
+	var totalParts int
+
+	// Confirm that the branch limits are valid and return 0 if not because nothing will come of this branch
+	if !branchLimits.valid {
+		return 0
+	}
+	if debug {
+		fmt.Printf("nm:%s%s\n", strings.Repeat("\t", stack), wflowName)
 	}
 
+	// Check in case we are already at the end
+	switch wflowName {
+	case "A":
+		// This is an accept rule, calculate the number of valid combinations of part values
+		// fmt.Printf("Accept rule: %s\n", ruleName)
+		// spew.Dump(branchLoopLimits)
+		result := calculateValidPartCombinations(branchLimits)
+		if debug {
+			fmt.Print("A |")
+			printPartLimits(branchLimits, stack)
+			fmt.Printf("%sAccept rule: %s, result: %d\n", strings.Repeat("\t", stack), wflowName, result)
+		}
+		return result
+	case "R":
+		// This is a reject rule, nothing from this path is valid
+		if debug {
+			fmt.Print("R |")
+			printPartLimits(branchLimits, stack)
+			fmt.Printf("%sReject rule: %s\n", strings.Repeat("\t", stack), wflowName)
+		}
+		return 0
+	}
+
+	// Fetch workflow
+	wflow := rules.workflows[wflowName]
+
+	// Check workflow has rules
+	if len(wflow.rules) == 0 {
+		panic("Workflow has no rules")
+	}
+	if debug {
+		fmt.Print("in|")
+		printPartLimits(branchLimits, stack)
+		fmt.Println()
+	}
+
+	limits := branchLimits
 	// Loop over rules in workflow
 	for _, rule := range wflow.rules {
+		if debug {
+			printRule(rule, stack)
+			fmt.Print("br|")
+			printPartLimits(limits, stack)
+		}
 		// Check if this is an end rule
 		if rule.end {
 			// This is an end rule
@@ -118,28 +153,122 @@ func walkRuleSet(rules ruleSet, ruleName string, branchLimits []partLimits) []pa
 			switch rule.target {
 			case "A":
 				// This is an accept rule
-				fmt.Printf("Accept rule: %s\n", ruleName)
-				// spew.Dump(branchLoopLimits)
-				return branchLimits
+				totalParts += calculateValidPartCombinations(limits)
 			case "R":
 				// This is a reject rule, nothing from this path is valid, ignore
 				// return []partLimits{}
 			default:
-				// Process next named rule
-				return walkRuleSet(rules, rule.target, branchLimits)
+				// Process next named rule and add any valid combinations to the total
+				totalParts += walkRuleSet(rules, rule.target, limits, stack+1, debug)
 			}
 		} else {
-
 			// This is a normal rule
-			// Apply rule to part limits to get new limits and call target with result
-			branchLoopLimits = applyRuleToPartLimits(rule, branchLoopLimits)
-			// spew.Dump(branchLoopLimits)
-			resultingLimits = append(resultingLimits, walkRuleSet(rules, rule.target, branchLoopLimits)...)
-			// spew.Dump(resultingLimits)
+			// Calculate the new split limits
+			trueLimits, falseLimits := splitPartLimits(limits, rule)
+			if debug {
+				fmt.Print("aT|")
+				printPartLimits(trueLimits, stack)
+				fmt.Print("aF|")
+				printPartLimits(falseLimits, stack)
+			}
+			// Start a new branch for the true limits
+			totalParts += walkRuleSet(rules, rule.target, trueLimits, stack+1, debug)
+			// Continue this branch with the false limits
+			limits = falseLimits
 		}
 	}
-	return resultingLimits
+	return totalParts
 }
+
+// Print rule
+func printRule(rule rule, indent int) {
+	fmt.Print(strings.Repeat("\t", indent))
+	if rule.end {
+		fmt.Printf("End:%s\n", rule.target)
+	} else {
+		fmt.Printf("%s%s%d:%s\n", rule.operand, decodeOperator(rule.operator), rule.value, rule.target)
+	}
+}
+
+// Print the part limits
+func printPartLimits(limits partLimits, indent int) {
+	fmt.Print(strings.Repeat("\t", indent))
+	// Loop over each operand
+	for _, operand := range []string{"x", "m", "a", "s"} {
+		fmt.Printf("%s: %4d➜%4d ", operand, limits.min[operand], limits.max[operand])
+	}
+	fmt.Println()
+}
+
+// Calculate the number of valid combinations of part values
+func calculateValidPartCombinations(limits partLimits) int {
+	var total int
+
+	// Check if the limits are valid, return 0 if not
+	if !limits.valid {
+		return 0
+	}
+
+	total = limits.max["x"] - limits.min["x"] + 1
+
+	// Calculate the number of valid combinations
+	for _, operand := range []string{"m", "a", "s"} {
+		total *= limits.max[operand] - limits.min[operand] + 1
+	}
+
+	return total
+}
+
+// func walkRuleSet(rules ruleSet, ruleName string, branchLimits []partLimits) int {
+// 	var resultingLimits []partLimits
+// 	// Fetch workflow
+// 	wflow := rules.workflows[ruleName]
+// 	fmt.Printf("ruleName: %s\n", ruleName)
+// 	var branchLoopLimits []partLimits
+// 	branchLoopLimits = append(branchLoopLimits, branchLimits...)
+// 	// Check in case we are already at the end
+// 	switch ruleName {
+// 	case "A":
+// 		// This is an accept rule
+// 		// fmt.Printf("Accept rule: %s\n", ruleName)
+// 		// spew.Dump(branchLoopLimits)
+// 		return branchLimits
+// 	case "R":
+// 		// This is a reject rule, nothing from this path is valid
+// 		return []partLimits{}
+// 	}
+
+// 	// Loop over rules in workflow
+// 	for _, rule := range wflow.rules {
+// 		// Check if this is an end rule
+// 		if rule.end {
+// 			// This is an end rule
+// 			// Check if this is an accept rule
+// 			switch rule.target {
+// 			case "A":
+// 				// This is an accept rule
+// 				fmt.Printf("Accept rule: %s\n", ruleName)
+// 				// spew.Dump(branchLoopLimits)
+// 				return branchLimits
+// 			case "R":
+// 				// This is a reject rule, nothing from this path is valid, ignore
+// 				// return []partLimits{}
+// 			default:
+// 				// Process next named rule
+// 				return walkRuleSet(rules, rule.target, branchLimits)
+// 			}
+// 		} else {
+
+// 			// This is a normal rule
+// 			// Apply rule to part limits to get new limits and call target with result
+// 			branchLoopLimits = applyRuleToPartLimits(rule, branchLoopLimits)
+// 			// spew.Dump(branchLoopLimits)
+// 			resultingLimits = append(resultingLimits, walkRuleSet(rules, rule.target, branchLoopLimits)...)
+// 			// spew.Dump(resultingLimits)
+// 		}
+// 	}
+// 	return resultingLimits
+// }
 
 // Generalise the rules to find the acceptable ranges of part values
 // func generaliseRules(rules ruleSet, ruleName string) map[string]partLimits {
@@ -239,91 +368,128 @@ func walkRuleSet(rules ruleSet, ruleName string, branchLimits []partLimits) []pa
 
 func makeMaxPartLimits() partLimits {
 	var limits partLimits
-	limits.xMin = 0
-	limits.xMax = 4000
-	limits.mMin = 0
-	limits.mMax = 4000
-	limits.aMin = 0
-	limits.aMax = 4000
-	limits.sMin = 0
-	limits.sMax = 4000
-
+	limits.min = make(map[string]int)
+	limits.max = make(map[string]int)
+	for _, key := range []string{"x", "m", "a", "s"} {
+		limits.min[key] = 1
+		limits.max[key] = 4000
+	}
+	limits.valid = true
 	return limits
 }
 
-func applyRuleToPartLimits(rule rule, limits []partLimits) []partLimits {
-	var newLimits []partLimits
+// Split the part limits into 2, based on a rule
+func splitPartLimits(limit partLimits, rule rule) (partLimits, partLimits) {
+	var trueLimits, falseLimits partLimits
 
-	// spew.Dump(limits)
-	// spew.Dump(rule)
-	// if rule.end {
-	// 	// This is an end rule
-	// 	// Check if this is an accept rule
-	// 	switch rule.target {
-	// 	case "A":
-	// 		// This is an accept rule, start with everything and reduce limits as we go
-	// 		return []partLimits{makeMaxPartLimits()}
-	// 	case "R":
-	// 		// This is a reject rule
-	// 		return []partLimits{}
-	// 	default:
-	// 		// Process next named rule
-	// 		return generaliseWorkflow(rules, rule.target)
-	// 	}
-	// }
+	// Copy limits
+	trueLimits.max = maps.Clone(limit.max)
+	trueLimits.min = maps.Clone(limit.min)
+	falseLimits.max = maps.Clone(limit.max)
+	falseLimits.min = maps.Clone(limit.min)
 
-	// Loop over limits
-	for _, limit := range limits {
-		// Check if the operand matches
-		switch rule.operand {
-		case "x":
-			// Check if the x operand matches
-			switch rule.operator {
-			case LT:
-				limit.xMax = rule.value - 1
-			case GT:
-				limit.xMin = rule.value + 1
-			default:
-				panic("Invalid operator")
-			}
-		case "m":
-			// Check if the m operand matches
-			switch rule.operator {
-			case LT:
-				limit.mMax = rule.value - 1
-			case GT:
-				limit.mMin = rule.value + 1
-			default:
-				panic("Invalid operator")
-			}
-		case "a":
-			// Check if the a operand matches
-			switch rule.operator {
-			case LT:
-				limit.aMax = rule.value - 1
-			case GT:
-				limit.aMin = rule.value + 1
-			default:
-				panic("Invalid operator")
-			}
-		case "s":
-			// Check if the s operand matches
-			switch rule.operator {
-			case LT:
-				limit.sMax = rule.value - 1
-			case GT:
-				limit.sMin = rule.value + 1
-			default:
-				panic("Invalid operator")
-			}
-		default:
-			panic("Invalid operand")
-		}
-		newLimits = append(newLimits, limit)
+	operand := rule.operand
+
+	// Check if the operand matches
+	switch rule.operator {
+	case LT:
+		trueLimits.max[operand] = rule.value - 1
+		falseLimits.min[operand] = rule.value
+	case GT:
+		trueLimits.min[operand] = rule.value + 1
+		falseLimits.max[operand] = rule.value
+	default:
+		panic("Invalid operator")
 	}
+	validatePartLimits(&trueLimits)
+	validatePartLimits(&falseLimits)
 
-	return newLimits
+	return trueLimits, falseLimits
 }
+
+func validatePartLimits(limits *partLimits) {
+	for _, key := range []string{"x", "m", "a", "s"} {
+		if limits.min[key] > limits.max[key] {
+			limits.valid = false
+			return
+		}
+	}
+	limits.valid = true
+}
+
+// func applyRuleToPartLimits(rule rule, limits []partLimits) []partLimits {
+// 	var newLimits []partLimits
+
+// 	// spew.Dump(limits)
+// 	// spew.Dump(rule)
+// 	// if rule.end {
+// 	// 	// This is an end rule
+// 	// 	// Check if this is an accept rule
+// 	// 	switch rule.target {
+// 	// 	case "A":
+// 	// 		// This is an accept rule, start with everything and reduce limits as we go
+// 	// 		return []partLimits{makeMaxPartLimits()}
+// 	// 	case "R":
+// 	// 		// This is a reject rule
+// 	// 		return []partLimits{}
+// 	// 	default:
+// 	// 		// Process next named rule
+// 	// 		return generaliseWorkflow(rules, rule.target)
+// 	// 	}
+// 	// }
+
+// 	// Loop over limits
+// 	for _, limit := range limits {
+// 		// Check if the operand matches
+// 		switch rule.operand {
+// 		case "x":
+// 			// Check if the x operand matches
+// 			switch rule.operator {
+// 			case LT:
+// 				limit.xMax = rule.value - 1
+// 			case GT:
+// 				limit.xMin = rule.value + 1
+// 			default:
+// 				panic("Invalid operator")
+// 			}
+// 		case "m":
+// 			// Check if the m operand matches
+// 			switch rule.operator {
+// 			case LT:
+// 				limit.mMax = rule.value - 1
+// 			case GT:
+// 				limit.mMin = rule.value + 1
+// 			default:
+// 				panic("Invalid operator")
+// 			}
+// 		case "a":
+// 			// Check if the a operand matches
+// 			switch rule.operator {
+// 			case LT:
+// 				limit.aMax = rule.value - 1
+// 			case GT:
+// 				limit.aMin = rule.value + 1
+// 			default:
+// 				panic("Invalid operator")
+// 			}
+// 		case "s":
+// 			// Check if the s operand matches
+// 			switch rule.operator {
+// 			case LT:
+// 				limit.sMax = rule.value - 1
+// 			case GT:
+// 				limit.sMin = rule.value + 1
+// 			default:
+// 				panic("Invalid operator")
+// 			}
+// 		default:
+// 			panic("Invalid operand")
+// 		}
+// 		newLimits = append(newLimits, limit)
+// 	}
+
+// 	return newLimits
+// }
 
 // Process a part
 func processPart(p part, rules *ruleSet, ruleName string) int {
@@ -512,14 +678,7 @@ func parseRule(line string) rule {
 	rule.operand = matches[1]
 
 	// Get operator
-	switch matches[2] {
-	case "<":
-		rule.operator = LT
-	case ">":
-		rule.operator = GT
-	default:
-		panic("Invalid operator")
-	}
+	rule.operator = encodeOperator(matches[2])
 
 	// Get value
 	var err error
@@ -529,6 +688,28 @@ func parseRule(line string) rule {
 	}
 
 	return rule
+}
+
+func encodeOperator(operator string) int {
+	switch operator {
+	case "<":
+		return LT
+	case ">":
+		return GT
+	default:
+		panic("Invalid operator")
+	}
+}
+
+func decodeOperator(operator int) string {
+	switch operator {
+	case LT:
+		return "<"
+	case GT:
+		return ">"
+	default:
+		panic("Invalid operator")
+	}
 }
 
 // Parse a part from a string
