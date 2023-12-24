@@ -1,8 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -43,13 +45,35 @@ func main() {
 	// Parse input as starting position
 	bricks, bottoms, tops := parseInput(input)
 
-	fmt.Printf("Start: %v\n", bricks)
+	// fmt.Printf("P Brick 1: {%s}\n", bricks[48].String())
+	// printBrick(bricks[48], 10, 10)
+	// printBrick(bricks[804], 10, 10)
+	// printBrick(bricks[1135], 10, 10)
+
+	// for i := 0; i < 6; i++ {
+	// 	fmt.Printf("Layer %d %v:\n", i, tops[i])
+	// }
+
+	fmt.Printf("Layers ")
+
+	// fmt.Printf("Start: %v\n", bricks)
 
 	// printBricks(bricks)
 
 	// make blocks fall, until they all stop.
 	// Also build and return a tree that represents the touching blocks
 	makeBlocksFall(&bricks, &bottoms, &tops)
+
+	// Print the brick 48
+	// printBrick(bricks[48], 10, 10)
+	// // Print the bricks whose tops are in layer 3
+	// for _, brick := range tops[3] {
+	// 	switch brick {
+	// 	case 475, 192, 269, 539, 883, 646, 693, 142, 1157, 242, 767, 280, 77, 205, 467, 776:
+	// 		continue
+	// 	}
+	// 	printBrick(bricks[brick], 10, 10)
+	// }
 
 	// Print the tree
 	// fmt.Printf("Drop : %v\n", bricks)
@@ -58,11 +82,52 @@ func main() {
 
 	// printBricks(bricks)
 
-	printBrick(bricks[1], 10, 10)
+	// printBrick(bricks[1], 10, 10)
+	// fmt.Printf("D Brick 1: {%s}\n", bricks[48].String())
+	// // for i := 0; i < len(bottoms); i++ {
+	// for i := 0; i < 10; i++ {
+	// 	printLayerBricks(bricks, i)
+	// }
 
 	// Count removable bricks
-	removableBricks := countRemovableBricks(&bricks, &bottoms, &tops)
-	fmt.Printf("Removable bricks: %d\n", removableBricks)
+	removableBricksCount := countRemovableBricks(&bricks, &bottoms, &tops)
+	fmt.Printf("Removable bricks: %d\n", removableBricksCount)
+
+	// Part 2
+	// Print the bricks in the first layer where bottoms occur
+	printedLayers := 0
+	for j := len(bottoms) - 1; j > 0 && printedLayers < 1; j-- {
+		fmt.Printf("len bottoms: %d; j: %d\n", len(bottoms), j)
+		if len(bottoms[j]) > 0 {
+			printLayerBricks(bricks, j)
+			printedLayers++
+		}
+	}
+
+	// Find sum of bricks combinations that would disintegrate, for every brick
+	var sum int
+	// droppedBrickSumCache := make(map[int]int)
+	// // Loop over layers from top to bottom
+	// for z := len(bottoms) - 1; z >= 0; z-- {
+	// 	// Loop over bricks in layer, so we calculate each brick once but from top to bottom
+	// 	for _, brick := range tops[z] {
+	// 		droppedBricks := droppedBricksIfRemoved(brick, &bricks, &bottoms, &tops)
+	// 		// Calculate sum of dropped bricks, if this brick was removed
+	// 		total := 0
+	// 		for _, droppedBrick := range droppedBricks {
+	// 			droppedBrickSum, ok := droppedBrickSumCache[droppedBrick]
+	// 			if !ok {
+	// 				panic(fmt.Sprintf("Dropped brick %d not in cache", droppedBrick))
+	// 			}
+	// 			total += droppedBrickSum + 1
+	// 		}
+	// 		// Add sum of dropped bricks to cache for this brick
+	// 		droppedBrickSumCache[brick] = total
+	// 		sum += total
+	// 	}
+	// }
+	sum = countBlocksFall(&bricks, &bottoms, &tops)
+	fmt.Printf("Part 2 Sum of brick removal disintegrations: %d\n", sum)
 }
 
 // Make blocks fall, until they all stop.
@@ -99,12 +164,75 @@ func makeBlocksFall(bricks *brickMap, bottoms *Layer, tops *Layer) *blockTree {
 	return nil
 }
 
+func countBlocksFall(bricks *brickMap, bottoms *Layer, tops *Layer) int {
+	var count int
+
+	// Keep dropping bricks one step until none fall
+	for i, removedBrick := range *bricks {
+		if i&32 == 0 {
+			fmt.Printf("Checking brick %d\n", i)
+		}
+		// Create a new deep copy of bricks, bottoms and tops
+		lbricks := make(brickMap, len(*bricks))
+		for k, v := range *bricks {
+			lbricks[k] = v
+		}
+		lbottoms := make(Layer, len(*bottoms))
+		for k, v := range *bottoms {
+			lbottoms[k] = make(map[int]int, len(v))
+			for k2, v2 := range v {
+				lbottoms[k][k2] = v2
+			}
+		}
+		ltops := make(Layer, len(*tops))
+		for k, v := range *tops {
+			ltops[k] = make(map[int]int, len(v))
+			for k2, v2 := range v {
+				ltops[k][k2] = v2
+			}
+		}
+
+		// Remove brick from bricks
+		delete(lbricks, removedBrick.id)
+		// Remove brick from bottoms
+		delete(lbottoms[(*bricks)[removedBrick.id].start.z], removedBrick.id)
+		// Remove brick from tops
+		delete(ltops[(*bricks)[removedBrick.id].end.z], removedBrick.id)
+
+		// Start with the layer above the removed brick work upwards, dropping any block in the layer above that can drop
+		for z := (*bricks)[removedBrick.id].start.z; z < len(lbottoms)-1; z++ {
+			// for z := 0; z < len(lbottoms)-1; z++ {
+			if debug {
+				fmt.Printf("Checking layer %d\n", z+1)
+			}
+			// Loop over bricks in layer above
+			for _, brick := range (lbottoms)[z+1] {
+				// Check if brick can drop
+				if canDrop(brick, z, &lbricks, &lbottoms, &ltops) {
+					// Drop brick
+					dropBrick(brick, &lbricks, &lbottoms, &ltops)
+					count++
+				}
+			}
+		}
+		if debug {
+			fmt.Println()
+		}
+	}
+
+	return count
+}
+
 // Drop a brick
 func dropBrick(brick int, bricks *brickMap, bottoms *Layer, tops *Layer) {
 	// Get brick
 	b := (*bricks)[brick]
+	ldebug := debug
+	if b.id == -1 {
+		ldebug = true
+	}
 
-	if debug {
+	if ldebug {
 		fmt.Printf("\tDropping brick %d from [%v ➜ %v] to ", brick, b.start, b.end)
 	}
 
@@ -117,7 +245,7 @@ func dropBrick(brick int, bricks *brickMap, bottoms *Layer, tops *Layer) {
 	b.end.z--
 	(*bricks)[brick] = b
 
-	if debug {
+	if ldebug {
 		fmt.Printf("[%v ➜ %v]\n", b.start, b.end)
 	}
 
@@ -130,31 +258,35 @@ func dropBrick(brick int, bricks *brickMap, bottoms *Layer, tops *Layer) {
 func canDrop(brick int, lowerLayer int, bricks *brickMap, bottoms *Layer, tops *Layer) bool {
 	// Get brick
 	b := (*bricks)[brick]
+	ldebug := debug
+	if b.id == -1 {
+		ldebug = true
+	}
 
-	if debug {
-		fmt.Printf("\tChecking if brick %d [%v ➜ %v] can drop from %d", brick, b.start, b.end, lowerLayer+1)
+	if ldebug {
+		fmt.Printf("\tChecking if brick %d [%v ➜ %v] can drop from %d\n", brick, b.start, b.end, lowerLayer+1)
 	}
 
 	// Check if brick is already at bottom
-	if b.end.z == 0 {
-		if debug {
+	if b.start.z == 1 {
+		if ldebug {
 			fmt.Printf("  ❌ brick is already at the bottom\n")
 		}
 		return false
 	}
 
 	// Check if brick is sitting on any other bricks from the lower layer
-	for _, lowerBrick := range (*bottoms)[lowerLayer] {
+	for _, lowerBrick := range (*tops)[lowerLayer] {
 		if isSupported((*bricks)[lowerBrick], (*bricks)[brick]) {
-			if debug {
-				fmt.Printf("  ❌ brick is supported by brick %d\n", lowerBrick)
+			if ldebug {
+				fmt.Printf("  ❌ brick is supported by brick %d{%s}\n", lowerBrick, (*bricks)[lowerBrick].String())
 			}
 			return false
 		}
 	}
 
-	if debug {
-		fmt.Println("\n\t ↳ brick is not supported by any bricks in the lower layer")
+	if ldebug {
+		fmt.Println("\n\t ↳ brick is not supported by any bricks in the lower layer\n")
 	}
 
 	// Brick not being held up by anything, so it can drop
@@ -163,6 +295,9 @@ func canDrop(brick int, lowerLayer int, bricks *brickMap, bottoms *Layer, tops *
 
 // Check if a brick is supported, this is just comparing whether the 2 bricks overlap in the x and y plane
 func isSupported(brick, supportingBrick brick) bool {
+	// if brick.id == 48 && supportingBrick.id == 804 {
+	// 	fmt.Printf("***Checking if brick %d is supported by brick %d\t{%s}{%s}", brick.id, supportingBrick.id, brick.String(), supportingBrick.String())
+	// }
 	// Check if brick is supported by supporting brick
 	if brick.start.x > supportingBrick.end.x || brick.end.x < supportingBrick.start.x ||
 		brick.start.y > supportingBrick.end.y || brick.end.y < supportingBrick.start.y {
@@ -216,9 +351,44 @@ func structureSoundIfRemoved(brick int, bricks *brickMap, bottoms *Layer, tops *
 		}
 	}
 	// fmt.Printf("Brick %c is removable\n", "ABCDEFGHIJKLMNO"[brick])
-	fmt.Printf("Brick %d is removable\n", brick)
+	// fmt.Printf("Brick %d is removable\n", brick)
+	// fmt.Printf("%04d {%d,%d,%d-%d,%d,%d}\n", (*bricks)[brick].id, (*bricks)[brick].start.x, (*bricks)[brick].start.y, (*bricks)[brick].start.z, (*bricks)[brick].end.x, (*bricks)[brick].end.y, (*bricks)[brick].end.z)
 	// Brick removal doesn't break the structure
 	return true
+}
+
+// Function that returns the brick ids that would fall if the specified brick was removed
+func droppedBricksIfRemoved(brick int, bricks *brickMap, bottoms *Layer, tops *Layer) []int {
+	var droppedBricks []int
+
+	// Get brick in question
+	b := (*bricks)[brick]
+
+	// Loop over bricks in layer above
+	for _, higherBrick := range (*bottoms)[b.end.z+1] {
+		supported := false
+		// Check if brick can drop by checking all bricks in this bricks layer, except the brick in question
+		// Loop over bricks in layer except the brick in question
+		for _, lowerBrick := range (*tops)[b.end.z] {
+			if lowerBrick != brick {
+				// Check if brick will hold it up
+				if isSupported((*bricks)[higherBrick], (*bricks)[lowerBrick]) {
+					// Brick is supported, so structure is sound. Continue to check next higher brick
+					supported = true
+					break
+				}
+			}
+		}
+		// With candidate brick removed, no other bricks in this layer can support this brick, add it to the list of dropped bricks
+		if !supported {
+			droppedBricks = append(droppedBricks, higherBrick)
+		}
+	}
+	// fmt.Printf("Brick %c is removable\n", "ABCDEFGHIJKLMNO"[brick])
+	// fmt.Printf("Brick %d is removable\n", brick)
+	// fmt.Printf("%04d {%d,%d,%d-%d,%d,%d}\n", (*bricks)[brick].id, (*bricks)[brick].start.x, (*bricks)[brick].start.y, (*bricks)[brick].start.z, (*bricks)[brick].end.x, (*bricks)[brick].end.y, (*bricks)[brick].end.z)
+	// Brick removal doesn't break the structure
+	return droppedBricks
 }
 
 // Parse input as starting position
@@ -289,6 +459,29 @@ func parsePoint(number string) Point {
 	return Point{result[0], result[1], result[2]}
 }
 
+// Print bricks in a layer
+func printLayerBricks(bricks brickMap, layer int) {
+	var layerBricks []brick
+	for _, brick := range bricks {
+		if brick.start.z == layer {
+			layerBricks = append(layerBricks, brick)
+		}
+	}
+	if len(layerBricks) == 0 {
+		// Nothing in the layer
+		return
+	}
+	fmt.Printf("Layer %d:\n", layer)
+
+	// Sort bricks by id
+	slices.SortFunc(layerBricks, func(a, b brick) int { return cmp.Compare(a.id, b.id) })
+	// Print bricks
+	for _, brick := range layerBricks {
+		fmt.Printf("L%3d B%04d {%d,%d,%d-%d,%d,%d}\n", layer, brick.id, brick.start.x, brick.start.y, brick.start.z, brick.end.x, brick.end.y, brick.end.z)
+	}
+	fmt.Println()
+}
+
 // Print bricks
 func printBricks(bricks brickMap) {
 	// Find max x and y
@@ -307,7 +500,7 @@ func printBricks(bricks brickMap) {
 
 // Print a brick
 func printBrick(b brick, maxX int, maxY int) {
-	fmt.Printf("Printing brick %v:\n", b)
+	fmt.Printf("Printing brick [%4d] %v:\n", b.id, b)
 	for y := 0; y <= maxY; y++ {
 		for x := 0; x <= maxX; x++ {
 			if x >= b.start.x && x <= b.end.x && y >= b.start.y && y <= b.end.y {
@@ -319,6 +512,11 @@ func printBrick(b brick, maxX int, maxY int) {
 		fmt.Println()
 	}
 	fmt.Println()
+}
+
+// Serialise brick details
+func (b brick) String() string {
+	return fmt.Sprintf("%d,%d,%d~%d,%d,%d", b.start.x, b.start.y, b.start.z, b.end.x, b.end.y, b.end.z)
 }
 
 // Load file contents into a string and return it
