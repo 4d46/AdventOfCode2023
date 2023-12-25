@@ -46,11 +46,17 @@ func TestCanDropCube(t *testing.T) {
 	bottoms[4] = map[int]int{2: 2}
 	bottoms[5] = map[int]int{}
 	bottoms[6] = map[int]int{3: 3}
+	bottoms[7] = map[int]int{}
 
 	tops := make(Layer, 8)
 	tops[0] = map[int]int{}
-	tops[1] = map[int]int{1: 1, 2: 2}
-	tops[2] = map[int]int{3: 3}
+	tops[1] = map[int]int{}
+	tops[2] = map[int]int{1: 1}
+	tops[3] = map[int]int{}
+	tops[4] = map[int]int{}
+	tops[5] = map[int]int{2: 2}
+	tops[6] = map[int]int{}
+	tops[7] = map[int]int{3: 3}
 
 	// Test case 1: brick can fall to the bottom
 	if !canDrop(1, 0, &bricks, &bottoms, &tops) {
