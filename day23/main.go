@@ -38,6 +38,10 @@ const (
 	west
 )
 
+type void struct{}
+
+var EMPTY void
+
 type Point struct {
 	x int
 	y int
@@ -110,12 +114,12 @@ func walkPath(tm *TrailMap, start Point) int {
 	currentPlot := start
 
 	// Take first step
-	longestPath = takeNextStep(tm, make(map[Point]int), currentPlot, south, 0)
+	longestPath = takeNextStep(tm, make(map[Point]void), currentPlot, south, 0)
 	fmt.Println()
 	return longestPath
 }
 
-func takeNextStep(tm *TrailMap, route map[Point]int, currentPlot Point, prevDirection int, count int) int {
+func takeNextStep(tm *TrailMap, route map[Point]void, currentPlot Point, prevDirection int, count int) int {
 
 	// Check if we have hit the end
 	if currentPlot == tm.end {
@@ -138,7 +142,9 @@ func takeNextStep(tm *TrailMap, route map[Point]int, currentPlot Point, prevDire
 	}
 
 	// Record number of steps to get to this point
-	route[currentPlot] = count
+	// route[currentPlot] = count
+	// Record that is this plot has been visited
+	route[currentPlot] = EMPTY
 
 	longestPath := 0
 
@@ -274,7 +280,7 @@ func oppositeDirection(direction int) int {
 // }
 
 // Print the trail map
-func printTrailMap(tm TrailMap, route *map[Point]int) {
+func printTrailMap(tm TrailMap) {
 	// Iterate over rows
 	for y := 0; y < tm.height; y++ {
 		// Iterate over columns
@@ -284,25 +290,12 @@ func printTrailMap(tm TrailMap, route *map[Point]int) {
 				// It is, so print it
 				fmt.Print("#")
 			} else {
-				if route == nil {
-					// It hasn't, so determine whether it is a slope
-					if slope, ok := tm.slopes[Point{x: x, y: y}]; ok {
-						// It is, so print it
-						fmt.Printf("%c", slope)
-					} else {
-						fmt.Print(".")
-					}
-				} else if val, ok := (*route)[Point{x: x, y: y}]; ok {
-					// It has, so print it
-					fmt.Printf("%d", val%10)
+				// It hasn't, so determine whether it is a slope
+				if slope, ok := tm.slopes[Point{x: x, y: y}]; ok {
+					// It is, so print it
+					fmt.Printf("%c", slope)
 				} else {
-					// It hasn't, so determine whether it is a slope
-					if slope, ok := tm.slopes[Point{x: x, y: y}]; ok {
-						// It is, so print it
-						fmt.Printf("%c", slope)
-					} else {
-						fmt.Print(".")
-					}
+					fmt.Print(".")
 				}
 			}
 		}
