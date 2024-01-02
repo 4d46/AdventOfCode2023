@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 )
@@ -137,7 +138,7 @@ func takeNextStep(tm *TrailMap, route map[Point]void, currentPlot Point, prevDir
 	// }
 	// Check if we have already been here and if so don't continue this path
 	if _, ok := route[currentPlot]; ok {
-		fmt.Print("x")
+		// fmt.Print("x")
 		return 0
 	}
 
@@ -147,6 +148,8 @@ func takeNextStep(tm *TrailMap, route map[Point]void, currentPlot Point, prevDir
 	route[currentPlot] = EMPTY
 
 	longestPath := 0
+
+	// var wg sync.WaitGroup
 
 	// Try to find new points in each direction
 	for direction := range []int{north, east, south, west} {
@@ -178,16 +181,24 @@ func takeNextStep(tm *TrailMap, route map[Point]void, currentPlot Point, prevDir
 		// }
 
 		// Duplicate the route
-		newRoute := make(map[Point]int)
-		for k, v := range route {
-			newRoute[k] = v
-		}
+		// newRoute := make(map[Point]void)
+		// newRoute := route
+		newRoute := maps.Clone(route)
+		// for k, v := range route {
+		// 	newRoute[k] = v
+		// }
+		var pathLen int
+		// wg.Add(1)
+		// go func() {
+		// 	defer wg.Done()
 		// Looks valid so take next step
-		pathLen := takeNextStep(tm, newRoute, nextPlot, direction, count+1)
+		pathLen = takeNextStep(tm, newRoute, nextPlot, direction, count+1)
+		// }()
 		if pathLen > longestPath {
 			longestPath = pathLen
 		}
 	}
+	// wg.Wait()
 	return longestPath
 }
 
